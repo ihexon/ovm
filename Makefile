@@ -1,8 +1,16 @@
 .PHONY: all build build-amd64 build-arm64 force-build clean help
 
+LDFLAGS += -Wl,-ld_classic,-no_warn_duplicate_libraries
 CGO_CFLAGS=-mmacosx-version-min=12.3
 
+GOFLAGS=-ldflags=-extldflags=$(LDFLAGS)
+
 CODESIGN_IDENTITY ?= -
+
+
+ifdef DEBUG
+	BUILD_FLAGS=-gcflags "all=-N -l"
+endif
 
 all: help
 
@@ -22,8 +30,9 @@ build-arm64: ##@ Build arm64 binary
 
 out/ovm-arm64 out/ovm-amd64: out/ovm-%: force-build
 	@mkdir -p $(@D)
-	CGO_ENABLED=1 CGO_CFLAGS=$(CGO_CFLAGS) GOOS=darwin GOARCH=$* go build -o $@ ./cmd/ovm
-	codesign --force --options runtime --entitlements ovm.entitlements --sign $(CODESIGN_IDENTITY) $@
+	CGO_ENABLED=1 CGO_CFLAGS=$(CGO_CFLAGS) GOOS=darwin GOARCH=$* \
+		    GOFLAGS=-ldflags=-extldflags=$(LDFLAGS) go build $(BUILD_FLAGS) -o $@ ./cmd/ovm
+	codesign --deep --force --entitlements ovm.entitlements --sign $(CODESIGN_IDENTITY) $@
 
 force-build:
 
