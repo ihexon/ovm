@@ -14,23 +14,28 @@ import (
 	"github.com/Code-Hex/go-infinity-channel"
 	"github.com/oomol-lab/ovm/pkg/cli"
 	"github.com/oomol-lab/ovm/pkg/logger"
-	"golang.org/x/sync/errgroup"
 )
 
-type Name string
+type key string
 
-var (
-	Initializing     Name = "Initializing"
-	GVProxyReady     Name = "GVProxyReady"
-	IgnitionProgress Name = "IgnitionProgress"
-	IgnitionDone     Name = "IgnitionDone"
-	VMReady          Name = "VMReady"
-	Exit             Name = "Exit"
-	Error            Name = "Error"
+const (
+	kApp   key = "app"
+	kError key = "error"
+	kExit  key = "exit"
+)
+
+type app string
+
+const (
+	Initializing     app = "Initializing"
+	GVProxyReady     app = "GVProxyReady"
+	IgnitionProgress app = "IgnitionProgress"
+	IgnitionDone     app = "IgnitionDone"
+	Ready            app = "Ready"
 )
 
 type datum struct {
-	name    Name
+	name    key
 	message string
 }
 
@@ -42,7 +47,10 @@ type event struct {
 
 var e *event
 
-func Init(opt *cli.Context) error {
+// see: https://github.com/Code-Hex/go-infinity-channel/issues/1
+var waitDone = make(chan struct{})
+
+func Setup(opt *cli.Context) error {
 	log, err := logger.New(opt.LogPath, opt.Name+"-event")
 	if err != nil {
 		return err
@@ -69,15 +77,7 @@ func Init(opt *cli.Context) error {
 		channel: infinity.NewChannel[*datum](),
 	}
 
-	return nil
-}
-
-func Subscribe(g *errgroup.Group) {
-	if e == nil {
-		return
-	}
-
-	g.Go(func() error {
+	go func() {
 		for datum := range e.channel.Out() {
 			uri := fmt.Sprintf("http://ovm/notify?event=%s&message=%s", datum.name, url.QueryEscape(datum.message))
 			e.log.Infof("notify %s event to %s", datum.name, uri)
@@ -91,24 +91,24 @@ func Subscribe(g *errgroup.Group) {
 				}
 			}
 
-			if datum.name == Exit {
-				e.channel.Close()
-				e = nil
-				return nil
+			if datum.name == kExit {
+				waitDone <- struct{}{}
+				return
 			}
 		}
+	}()
 
-		return nil
-	})
+	return nil
 }
 
-func Notify(name Name) {
+func NotifyApp(name app) {
 	if e == nil {
 		return
 	}
 
 	e.channel.In() <- &datum{
-		name: name,
+		name:    kApp,
+		message: string(name),
 	}
 }
 
@@ -118,7 +118,22 @@ func NotifyError(err error) {
 	}
 
 	e.channel.In() <- &datum{
-		name:    Error,
+		name:    kError,
 		message: err.Error(),
 	}
+}
+
+func NotifyExit() {
+	if e == nil {
+		return
+	}
+
+	e.channel.In() <- &datum{
+		name:    kExit,
+		message: "",
+	}
+
+	<-waitDone
+	close(waitDone)
+	e.channel.Close()
 }

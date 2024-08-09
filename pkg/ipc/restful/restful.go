@@ -27,7 +27,13 @@ type stateResponse struct {
 }
 
 type infoResponse struct {
-	PodmanSocketPath string `json:"podmanSocketPath"`
+	PodmanSocketPath  string `json:"podmanSocketPath"`
+	SSHPort           int    `json:"sshPort"`
+	SSHUser           string `json:"sshUser"`
+	SSHPublicKeyPath  string `json:"sshPublicKeyPath"`
+	SSHPrivateKeyPath string `json:"sshPrivateKeyPath"`
+	SSHPublicKey      string `json:"sshPublicKey"`
+	SSHPrivateKey     string `json:"sshPrivateKey"`
 }
 
 type Restful struct {
@@ -44,6 +50,10 @@ func New(vz *vz.VirtualMachine, vmC *config.VirtualMachine, log *logger.Context,
 		log: log,
 		opt: opt,
 	}
+}
+
+type powerSaveModeBody struct {
+	Enable bool `json:"enable"`
 }
 
 func (s *Restful) mux() *http.ServeMux {
@@ -84,7 +94,7 @@ func (s *Restful) mux() *http.ServeMux {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
-	mux.HandleFunc("/requestStop", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/request-stop", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "post only", http.StatusBadRequest)
 			return
@@ -104,21 +114,20 @@ func (s *Restful) mux() *http.ServeMux {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
-	mux.HandleFunc("/startPowerSaveMode", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/power-save-mode", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
 			http.Error(w, "put only", http.StatusBadRequest)
 			return
 		}
 
-		s.startPowerSaveMode()
-	})
-	mux.HandleFunc("/stopPowerSaveMode", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPut {
-			http.Error(w, "put only", http.StatusBadRequest)
+		var body powerSaveModeBody
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			s.log.Warnf("Failed to decode request body: %v", err)
+			http.Error(w, "failed to decode request body", http.StatusBadRequest)
 			return
 		}
 
-		s.stopPowerSaveMode()
+		s.powerSaveMode(body.Enable)
 	})
 
 	return mux
@@ -141,7 +150,13 @@ func (s *Restful) Start(ctx context.Context, g *errgroup.Group, nl net.Listener)
 func (s *Restful) info() *infoResponse {
 	s.log.Info("request /info")
 	return &infoResponse{
-		PodmanSocketPath: s.opt.ForwardSocketPath,
+		PodmanSocketPath:  s.opt.ForwardSocketPath,
+		SSHPort:           s.opt.SSHPort,
+		SSHUser:           "root",
+		SSHPublicKeyPath:  s.opt.SSHPublicKeyPath,
+		SSHPrivateKeyPath: s.opt.SSHPrivateKeyPath,
+		SSHPublicKey:      s.opt.SSHPublicKey,
+		SSHPrivateKey:     s.opt.SSHPrivateKey,
 	}
 }
 
@@ -200,12 +215,7 @@ func (s *Restful) stop() error {
 	return err
 }
 
-func (s *Restful) startPowerSaveMode() {
-	s.log.Info("request /startPowerSaveMode")
-	s.opt.PowerSaveMode = true
-}
-
-func (s *Restful) stopPowerSaveMode() {
-	s.log.Info("request /stopPowerSaveMode")
-	s.opt.PowerSaveMode = false
+func (s *Restful) powerSaveMode(enable bool) {
+	s.log.Info("request /powerSaveMode")
+	s.opt.PowerSaveMode = enable
 }
