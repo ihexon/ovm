@@ -13,10 +13,10 @@ import (
 func kernelCMD(opt *cli.Context) string {
 	sb := strings.Builder{}
 
-	sb.Grow(300)
+	sb.Grow(600)
 
 	// record Kernel and Systemd logs to console
-	sb.WriteString("console=hvc0 ")
+	sb.WriteString("console=hvc0  root=UUID=55aae296-7a09-47b3-9736-ec84fc7184c4 rootfstype=ext4 ro modules=virtio,ext4 ")
 
 	// disable the creation of useless network interfaces.
 	// see: https://github.com/oomol-lab/ovm-js/pull/23

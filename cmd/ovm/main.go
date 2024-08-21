@@ -18,7 +18,6 @@ import (
 	"github.com/oomol-lab/ovm/pkg/gvproxy"
 	"github.com/oomol-lab/ovm/pkg/ipc/event"
 	"github.com/oomol-lab/ovm/pkg/logger"
-	"github.com/oomol-lab/ovm/pkg/sshagentsock"
 	"github.com/oomol-lab/ovm/pkg/utils"
 	"github.com/oomol-lab/ovm/pkg/vfkit"
 	"golang.org/x/sync/errgroup"
@@ -73,11 +72,11 @@ func main() {
 		exit(1)
 	}
 
-	agent, err := sshagentsock.Start(opt.SSHAuthSocketPath, log)
-	if err != nil {
-		_ = log.Errorf("start ssh agent sock error: %v", err)
-		exit(1)
-	}
+	//agent, err := sshagentsock.Start(opt.SSHAuthSocketPath, log)
+	//if err != nil {
+	//	_ = log.Errorf("start ssh agent sock error: %v", err)
+	//	exit(1)
+	//}
 
 	event.NotifyApp(event.Initializing)
 
@@ -92,7 +91,7 @@ func main() {
 		}
 
 		g.Go(func() error {
-			conn, err := utils.AcceptTimeout(ctx, nl, time.After(30*time.Second))
+			conn, err := utils.AcceptTimeout(ctx, nl, time.After(60*time.Second))
 			if err != nil {
 				return fmt.Errorf("ready accept timeout: %v", err)
 			}
@@ -111,10 +110,10 @@ func main() {
 		})
 	}
 
-	g.Go(func() error {
-		<-ctx.Done()
-		return agent.Close()
-	})
+	//g.Go(func() error {
+	//	<-ctx.Done()
+	//	return agent.Close()
+	//})
 
 	g.Go(func() error {
 		waitBindPID(ctx, log, opt.BindPID)

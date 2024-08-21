@@ -22,7 +22,7 @@ var mounts = &_mounts{
 	list: []fs{
 		{
 			tag:      "vfkit-share-user",
-			shareDir: "/Users",
+			shareDir: "/Users/",
 		},
 		{
 			tag:      "vfkit-share-var-folders",

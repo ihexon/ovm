@@ -21,18 +21,21 @@ func cmd(opt *cli.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	tz := fmt.Sprintf("ln -sf /usr/share/zoneinfo/%s /mnt/overlay/etc/localtime; echo %s > /mnt/overlay/etc/timezone", localTZ, localTZ)
+	tz := fmt.Sprintf("ln -sf /usr/share/zoneinfo/%s /etc/localtime", localTZ)
+	//tz := fmt.Sprintf("ln -sf /usr/share/zoneinfo/%s /mnt/overlay/etc/localtime; echo %s > /mnt/overlay/etc/timezone", localTZ, localTZ)
 
 	fstab := ""
 	for _, item := range mounts.toFSTAB() {
 		fstab += item + "\\\\n"
 	}
+	mount := fmt.Sprintf("echo -n /dev/vda1 / defaults 0 0  >> /etc/fstab;echo -e %s >/etc/fstab;mkdir -p /Users;mkdir -p /private;mkdir -p /var/folders;mount -a", fstab)
+	//mount := fmt.Sprintf("echo -e %s >> /mnt/overlay/etc/fstab", fstab)
+	authorizedKeys := fmt.Sprintf("mkdir -p /root/.ssh; echo %s > /root/.ssh/authorized_keys", opt.SSHPublicKey)
+	//authorizedKeys := fmt.Sprintf("mkdir -p /mnt/overlay/root/.ssh; echo %s >> /mnt/overlay/root/.ssh/authorized_keys", opt.SSHPublicKey)
+	ready := fmt.Sprintf("echo do_no_thing")
+	//ready := fmt.Sprintf("echo -e \"date -s @%d;\\\\necho Ready | socat -v -d -d - VSOCK-CONNECT:2:1026\" > /mnt/overlay/opt/ready.command", time.Now().Unix())
 
-	mount := fmt.Sprintf("echo -e %s >> /mnt/overlay/etc/fstab", fstab)
-	authorizedKeys := fmt.Sprintf("mkdir -p /mnt/overlay/root/.ssh; echo %s >> /mnt/overlay/root/.ssh/authorized_keys", opt.SSHPublicKey)
-	ready := fmt.Sprintf("echo -e \"date -s @%d;\\\\necho Ready | socat -v -d -d - VSOCK-CONNECT:2:1026\" > /mnt/overlay/opt/ready.command", time.Now().Unix())
-
-	return fmt.Sprintf("%s; %s; %s; %s", mount, authorizedKeys, ready, tz), nil
+	return fmt.Sprintf("%s; %s; %s; %s;", tz, mount, authorizedKeys, ready), nil
 }
 
 func ignition(ctx context.Context, g *errgroup.Group, opt *cli.Context, log *logger.Context) error {

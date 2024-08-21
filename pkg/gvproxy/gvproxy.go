@@ -9,12 +9,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/containers/gvisor-tap-vsock/pkg/sshclient"
 	"github.com/containers/gvisor-tap-vsock/pkg/transport"
 	"github.com/containers/gvisor-tap-vsock/pkg/types"
 	"github.com/containers/gvisor-tap-vsock/pkg/virtualnetwork"
@@ -118,54 +116,54 @@ func Run(ctx context.Context, g *errgroup.Group, opt *cli.Context) error {
 	channel.NotifyGVProxyReady()
 	event.NotifyApp(event.GVProxyReady)
 
-	g.Go(func() error {
-		select {
-		case <-ctx.Done():
-			log.Info("skip create ssh forward, because context done")
-			return nil
-		case <-channel.ReceiveVMReady():
-			log.Info("VM is ready, creating podman socket forward")
-			break
-		}
-
-		src := &url.URL{
-			Scheme: "unix",
-			Path:   opt.ForwardSocketPath,
-		}
-
-		dest := &url.URL{
-			Scheme: "ssh",
-			User:   url.User("root"),
-			Host:   sshHostPort,
-			Path:   "/run/podman/podman.sock",
-		}
-		defer os.RemoveAll(opt.ForwardSocketPath)
-
-		log.Infof("ssh private key path: %s", opt.SSHPrivateKeyPath)
-		forward, err := sshclient.CreateSSHForward(ctx, src, dest, opt.SSHPrivateKeyPath, vn)
-		if err != nil {
-			return err
-		}
-		go func() {
-			<-ctx.Done()
-			forward.Close()
-		}()
-
-	loop:
-		for {
-			select {
-			case <-ctx.Done():
-				break loop
-			default:
-				// proceed
-			}
-			err := forward.AcceptAndTunnel(ctx)
-			if err != nil {
-				log.Infof("Error occurred handling ssh forwarded connection: %q", err)
-			}
-		}
-		return nil
-	})
+	//g.Go(func() error {
+	//	select {
+	//	case <-ctx.Done():
+	//		log.Info("skip create ssh forward, because context done")
+	//		return nil
+	//	case <-channel.ReceiveVMReady():
+	//		log.Info("VM is ready, creating podman socket forward")
+	//		break
+	//	}
+	//
+	//	src := &url.URL{
+	//		Scheme: "unix",
+	//		Path:   opt.ForwardSocketPath,
+	//	}
+	//
+	//	dest := &url.URL{
+	//		Scheme: "ssh",
+	//		User:   url.User("root"),
+	//		Host:   sshHostPort,
+	//		Path:   "/run/podman/podman.sock",
+	//	}
+	//	defer os.RemoveAll(opt.ForwardSocketPath)
+	//
+	//	log.Infof("ssh private key path: %s", opt.SSHPrivateKeyPath)
+	//	forward, err := sshclient.CreateSSHForward(ctx, src, dest, opt.SSHPrivateKeyPath, vn)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	go func() {
+	//		<-ctx.Done()
+	//		forward.Close()
+	//	}()
+	//
+	//loop:
+	//	for {
+	//		select {
+	//		case <-ctx.Done():
+	//			break loop
+	//		default:
+	//			// proceed
+	//		}
+	//		err := forward.AcceptAndTunnel(ctx)
+	//		if err != nil {
+	//			log.Infof("Error occurred handling ssh forwarded connection: %q", err)
+	//		}
+	//	}
+	//	return nil
+	//})
 
 	return nil
 }
